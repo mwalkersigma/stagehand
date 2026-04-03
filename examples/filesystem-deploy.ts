@@ -186,6 +186,7 @@ await new ScriptApp("fs-deploy")
   // CRITICAL: Colors are FUNCTIONS (text: string) => string, never strings.
   //           gradient is the ONE exception: [string, string] hex tuple.
   .theme({
+    collapseLevel: 'tasks',
     colors: {
       primary: blue,
       accent: green,
@@ -323,7 +324,7 @@ await new ScriptApp("fs-deploy")
             // ── Feature 14: Collapse level — 'tasks' ──────────────
             // Individual steps are hidden after completion; the stage
             // title stays visible.
-            .collapse("tasks")
+            // .collapse("tasks")
 
             // Step: Validate source exists
             .step({
@@ -420,7 +421,7 @@ await new ScriptApp("fs-deploy")
           stage
             // ── Feature 14: Collapse level — 'none' ───────────────
             // Everything stays visible — useful for important stages.
-            .collapse("none")
+            // .collapse("none")
 
             // Step: Remove stale lock file from a previous run
             .step({
@@ -910,32 +911,31 @@ await new ScriptApp("fs-deploy")
             .filter(f => f.path.startsWith(ctx.shared.destBase));
 
           // ── Feature 18: Formatted summary output ────────────────
-          console.log(
-            "\n" + Bold(GradientText(
-              "═══ Deploy Summary ═══",
-              "#00BFFF",
-              "#FF6347",
-            )),
-          );
-          console.log(`  Source:       ${green(sourceCheck.path)}`);
-          console.log(`  Destination:  ${green(ctx.shared.destBase)}`);
-          console.log(`  Directories:  ${green(String(dirSummary.totalDirs))}`);
-          console.log(`  Files copied: ${green(String(copyResult.files.length))}`);
-          console.log(`  Manifest:     ${green(manifestResult.manifestPath)}`);
-          console.log(
+          const summaryLines: string[] = [
+            Bold(GradientText("═══ Deploy Summary ═══", "#00BFFF", "#FF6347")),
+            `  Source:       ${green(sourceCheck.path)}`,
+            `  Destination:  ${green(ctx.shared.destBase)}`,
+            `  Directories:  ${green(String(dirSummary.totalDirs))}`,
+            `  Files copied: ${green(String(copyResult.files.length))}`,
+            `  Manifest:     ${green(manifestResult.manifestPath)}`,
             `  Dry run:      ${ctx.isDryRun() ? yellow("yes") : green("no")}`,
-          );
+          ];
 
           if (destFiles.length > 0) {
-            console.log(`\n  ${Bold("Virtual FS contents:")}`);
+            summaryLines.push(`\n  ${Bold("Virtual FS contents:")}`);
             for (const entry of destFiles) {
               const isDir = entry.content === "[directory]";
               const icon = isDir ? "📁" : "📄";
               const label = isDir ? blue(entry.path) : darkGray(entry.path);
-              console.log(`    ${icon} ${label}`);
+              summaryLines.push(`    ${icon} ${label}`);
             }
           }
-          console.log("");
+
+          await ctx.task.run("Deploy Summary", async ({ setOutput, setTitle }) => {
+            setOutput(summaryLines.join("\n"));
+            setTitle("✓ Deploy Summary");
+            return undefined;
+          });
 
           return {
             source: sourceCheck.path,
@@ -1095,6 +1095,130 @@ await new ScriptApp("fs-deploy")
             totalEntries: scan.entries.length,
             directories: scan.dirCount,
             files: scan.fileCount,
+          };
+        })
+        .build(),
+  })
+
+
+  // ┌──────────────────────────────────────────────────────────────────────┐
+  // │  COMMAND 3: deploy-preview                                          │
+  // │  Demonstrates live shell output streaming with ctx.$ preview mode.  │
+  // └──────────────────────────────────────────────────────────────────────┘
+  .command({
+    name: "deploy-preview",
+    description: "Run a preview-enabled noisy shell command to demonstrate tasuku stream output",
+
+    build: (cmd) =>
+      cmd
+        .addOption(
+          new Option("--lines <count>", "Number of preview lines to emit")
+            .argParser((value) => Number(value))
+            .default(20),
+        )
+        .addOption(
+          new Option("--delay-ms <ms>", "Delay between lines in milliseconds")
+            .argParser((value) => Number(value))
+            .default(90),
+        )
+        .addOption(
+          new Option("-d, --dry-run", "Simulate without running the noisy command")
+            .default(false, "false"),
+        ),
+
+    handler: ({ defineProcessor }) =>
+      defineProcessor({
+        id: "deploy-preview-processor",
+        title: "Deploy Preview Stream",
+      })
+        .createShared(async (_input, runtime) => {
+          const lines = Number.isFinite(runtime.flags.lines) && runtime.flags.lines > 0
+            ? Math.floor(runtime.flags.lines)
+            : 20;
+          const delayMs = Number.isFinite(runtime.flags.delayMs) && runtime.flags.delayMs >= 0
+            ? Math.floor(runtime.flags.delayMs)
+            : 90;
+
+          return { lines, delayMs };
+        })
+        .stage("preview", "Preview Streaming Output", (stage) =>
+          stage
+            .collapse("none")
+            .step({
+              id: "stream-shell-output",
+              title: "Run noisy shell command with live preview",
+              effect: "external",
+              compensation: { kind: "none" },
+
+              run: async (ctx) => {
+                const script = [
+                  "const lines = Number(process.argv[1] ?? 20);",
+                  "const delay = Number(process.argv[2] ?? 90);",
+                  "const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));",
+                  "(async () => {",
+                  "  for (let i = 1; i <= lines; i++) {",
+                  "    process.stderr.write(`[preview] chunk ${i}/${lines}\\n`);",
+                  "    await sleep(delay);",
+                  "  }",
+                  "})().catch((error) => {",
+                  "  console.error(error instanceof Error ? error.message : String(error));",
+                  "  process.exit(1);",
+                  "});",
+                ].join(" ");
+
+                await ctx.$(
+                  "node",
+                  ["-e", script, String(ctx.shared.lines), String(ctx.shared.delayMs)],
+                  {
+                    preview: true,
+                    clearPreviewOnSuccess: true,
+                  },
+                );
+
+                ctx.setTaskTitle("✓ Preview stream complete");
+                return {
+                  artifact: {
+                    lines: ctx.shared.lines,
+                    delayMs: ctx.shared.delayMs,
+                  },
+                };
+              },
+            })
+            .step({
+              id: "preview-summary",
+              title: "Report preview configuration",
+              effect: "read",
+              compensation: { kind: "none" },
+
+              run: async (ctx) => {
+                ctx.setTaskOutput(
+                  `Rendered ${ctx.shared.lines} preview lines (${ctx.shared.delayMs}ms delay)`
+                );
+                return {
+                  artifact: {
+                    ok: true,
+                  },
+                };
+              },
+            })
+        )
+        .finalize(async (ctx) => {
+          const streamResult = ctx.getStepArtifact("preview", "stream-shell-output");
+
+          await ctx.task.run("Preview Summary", async ({ setOutput, setTitle }) => {
+            setOutput([
+              Bold(GradientText("═══ Preview Demo Complete ═══", "#00BFFF", "#FF6347")),
+              `  Lines emitted: ${green(String(streamResult.lines))}`,
+              `  Delay (ms):    ${green(String(streamResult.delayMs))}`,
+            ].join("\n"));
+            setTitle("✓ Preview Summary");
+            return undefined;
+          });
+
+          return {
+            ok: true,
+            lines: streamResult.lines,
+            delayMs: streamResult.delayMs,
           };
         })
         .build(),

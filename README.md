@@ -93,7 +93,7 @@ await new ScriptApp("my-tool")
   .command({
     name: "build",
     description: "Compile the project",
-    build: (cmd) =>
+    build: (cmd, Option) =>
       cmd.addOption(
         new Option("-d, --dry-run", "Run without making changes").default(false)
       ),
@@ -122,6 +122,18 @@ await new ScriptApp("my-tool")
         .build(),
   })
   .parseAsync();
+```
+
+The command build callback now receives both the command instance and the Option constructor:
+
+```ts
+build: (cmd, Option) => {
+  return cmd.addOption(
+    new Option("--mode <value>", "Build mode")
+      .choices(["fast", "full"] as const)
+      .default("fast" as const)
+  );
+}
 ```
 
 ```sh
@@ -235,6 +247,9 @@ run: async (ctx) => {
 
   // Execute shell commands (respects dry-run automatically)
   const result = await ctx.$("node", ["--version"]);
+
+  // Stream live command output into the current tasuku task preview
+  await ctx.$("bun", ["run", "build"], { preview: true });
 
   // Update the terminal task display
   ctx.setTaskTitle("Compiling...");
@@ -523,6 +538,19 @@ The `Shell` interface provides three methods for command execution:
 | `run(cmd, args?, opts?)` | `Promise<ShellResult>` | Execute a command and return full result |
 | `capture(cmd, args?, opts?)` | `Promise<string>` | Execute a command and return stdout |
 | `noop(cmd, args?)` | `Promise<ShellResult>` | Return a no-op result (empty output, exit code 0) |
+
+`ctx.$()` also accepts preview options on top of Execa options:
+
+```ts
+await ctx.$("curl", ["-L", "https://example.com/file"], {
+  preview: true,
+  clearPreviewOnSuccess: false,
+});
+```
+
+- `preview: true` streams both stdout and stderr into tasuku's `streamPreview`
+- `preview: 'stdout' | 'stderr' | 'all'` limits which fd is shown
+- `clearPreviewOnSuccess: true` removes the live preview after a successful command
 
 `ShellResult` shape:
 

@@ -529,27 +529,14 @@ describe("Processor", () => {
 
     const runtime = createMockRuntime({});
 
-    // Intercept task() calls to capture returned TaskPromise objects
-    const captured: Array<{ title: string; taskPromise: any }> = [];
-    const origTask = runtime.reporter.task;
-    (runtime.reporter as any).task = Object.assign(
-      (title: string, fn: any, options?: any) => {
-        const result = (origTask as Function)(title, fn, options);
-        captured.push({ title, taskPromise: result });
-        return result;
-      },
-      { group: (origTask as any).group }
-    );
-
     await processor.run(undefined as void, runtime);
 
-    // The stage task promise should have had .clear() called
-    const stageEntry = captured.find((p) => p.title === "Stage");
+    const stageEntry = runtime.mockTask.calls.find((call) => call.title === "Stage");
     expect(stageEntry).toBeDefined();
-    expect(stageEntry!.taskPromise.clear).toHaveBeenCalled();
+    expect(stageEntry!.clear).toHaveBeenCalled();
   });
 
-  test("applies step-level collapse by calling clear() on step tasks", async () => {
+  test("applies task-level collapse by clearing the step task group", async () => {
     const processor = new ProcessorBuilder<void, {}, {}, {}, void, {}>({
       id: "collapse-tasks-proc",
       title: "Collapse Tasks Processor",
@@ -557,6 +544,7 @@ describe("Processor", () => {
       .createShared(async () => ({}))
       .stage("s", "Stage", (s) =>
         s
+          .collapse("tasks")
           .step({
             id: "step-1",
             title: "Step 1",
@@ -571,39 +559,23 @@ describe("Processor", () => {
             compensation: { kind: "none" },
             run: async () => ({ artifact: null }),
           })
-          .collapse("tasks")
       )
       .finalize(async () => { })
       .build();
 
     const runtime = createMockRuntime({});
 
-    // Intercept task() calls to capture returned TaskPromise objects
-    const captured: Array<{ title: string; taskPromise: any }> = [];
-    const origTask = runtime.reporter.task;
-    (runtime.reporter as any).task = Object.assign(
-      (title: string, fn: any, options?: any) => {
-        const result = (origTask as Function)(title, fn, options);
-        captured.push({ title, taskPromise: result });
-        return result;
-      },
-      { group: (origTask as any).group }
-    );
-
     await processor.run(undefined as void, runtime);
 
-    // Step task promises should have .clear() called
-    const step1Entry = captured.find((p) => p.title === "Step 1");
-    const step2Entry = captured.find((p) => p.title === "Step 2");
-    expect(step1Entry).toBeDefined();
-    expect(step2Entry).toBeDefined();
-    expect(step1Entry!.taskPromise.clear).toHaveBeenCalled();
-    expect(step2Entry!.taskPromise.clear).toHaveBeenCalled();
+    const stepGroup = runtime.mockTask.groups.find(
+      (group) => group.titles.includes("Step 1") && group.titles.includes("Step 2"),
+    );
+    expect(stepGroup).toBeDefined();
+    expect(stepGroup!.clear).toHaveBeenCalled();
 
-    // Stage task promise should NOT have .clear() called (only 'stage' collapse does that)
-    const stageEntry = captured.find((p) => p.title === "Stage");
+    const stageEntry = runtime.mockTask.calls.find((call) => call.title === "Stage");
     expect(stageEntry).toBeDefined();
-    expect(stageEntry!.taskPromise.clear).not.toHaveBeenCalled();
+    expect(stageEntry!.clear).not.toHaveBeenCalled();
   });
 
   test("parallel step failures create FrameworkError", async () => {

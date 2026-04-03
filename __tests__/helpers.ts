@@ -45,15 +45,25 @@ export function createMockTaskInnerAPI(): TaskInnerAPI {
 export interface MockTaskCall {
   title: string;
   innerApi: TaskInnerAPI;
+  clear: ReturnType<typeof mock>;
+  source: "task" | "group";
+}
+
+export interface MockTaskGroupCall {
+  titles: string[];
+  clear: ReturnType<typeof mock>;
+  options?: unknown;
 }
 
 export interface MockTaskFn extends TasukuTask {
   /** Recorded calls in invocation order. Useful for asserting execution flow. */
   calls: MockTaskCall[];
+  groups: MockTaskGroupCall[];
 }
 
 export function createMockTask(): MockTaskFn {
   const calls: MockTaskCall[] = [];
+  const groups: MockTaskGroupCall[] = [];
 
   const wrappedTask = ((
     title: string,
@@ -61,25 +71,29 @@ export function createMockTask(): MockTaskFn {
     _options?: unknown,
   ) => {
     const innerApi = createMockTaskInnerAPI();
-    calls.push({ title, innerApi });
-
-    const promise = fn(innerApi);
-
-    // Build a TaskPromise-like object: a thenable with .clear(), .state, etc.
-    const taskPromise: Promise<unknown> & {
+    let taskPromise: Promise<unknown> & {
       state: "pending";
       warning: unknown;
       error: unknown;
       skipped: unknown;
       clear: ReturnType<typeof mock>;
-    } = Object.assign(promise, {
+    };
+
+    const clear = mock(function clearFn(): unknown {
+      return taskPromise;
+    });
+
+    calls.push({ title, innerApi, clear, source: "task" });
+
+    const promise = fn(innerApi);
+
+    // Build a TaskPromise-like object: a thenable with .clear(), .state, etc.
+    taskPromise = Object.assign(promise, {
       state: "pending" as const,
       warning: undefined as unknown,
       error: undefined as unknown,
       skipped: undefined as unknown,
-      clear: mock(function clearFn(): unknown {
-        return taskPromise;
-      }),
+      clear,
     });
 
     return taskPromise;
@@ -87,21 +101,21 @@ export function createMockTask(): MockTaskFn {
 
   // Attach the calls tracker
   (wrappedTask as MockTaskFn).calls = calls;
+  (wrappedTask as MockTaskFn).groups = groups;
 
   // task.group implementation for any custom usage in step callbacks
   (wrappedTask as unknown as Record<string, unknown>).group = mock(
-    async (
+    (
       createTasks: (creator: (...args: unknown[]) => unknown) => unknown[],
-      _options?: unknown,
+      options?: { concurrency?: number; stopOnError?: boolean },
     ) => {
-      const registeredTasks: Array<{ run: () => Promise<unknown> }> = [];
-
       const creator = (
         title: string,
         fn: (api: TaskInnerAPI) => Promise<unknown>,
       ) => {
         const innerApi = createMockTaskInnerAPI();
-        calls.push({ title, innerApi });
+        const clear = mock(() => undefined);
+        calls.push({ title, innerApi, clear, source: "group" });
 
         const registered: {
           run: () => Promise<unknown>;
@@ -110,18 +124,55 @@ export function createMockTask(): MockTaskFn {
         } = {
           run: async () => fn(innerApi),
           task: { title, state: "pending", children: [] },
-          clear: mock((): unknown => registered),
+          clear,
         };
-        registeredTasks.push(registered);
         return registered;
       };
 
-      const tasks = createTasks(creator as (...args: unknown[]) => unknown);
-      const results: unknown[] = [];
-      for (const t of tasks as Array<{ run: () => Promise<unknown> }>) {
-        results.push(await t.run());
-      }
-      return results;
+      const tasks = createTasks(creator as (...args: unknown[]) => unknown) as Array<{
+        run: () => Promise<unknown>;
+        task: { title: string };
+      }>;
+
+      let groupPromise: Promise<unknown[]> & { clear: ReturnType<typeof mock> };
+      const groupClear = mock(() => groupPromise);
+      groups.push({
+        titles: tasks.map((task) => task.task.title),
+        clear: groupClear,
+        options,
+      });
+
+      const execute = async () => {
+        if (options?.stopOnError === false) {
+          const settled = await Promise.allSettled(tasks.map((task) => task.run()));
+          const results: unknown[] = [];
+          const failures: unknown[] = [];
+
+          for (const result of settled) {
+            if (result.status === "fulfilled") {
+              results.push(result.value);
+              continue;
+            }
+
+            failures.push(result.reason);
+          }
+
+          if (failures.length > 0) {
+            throw new AggregateError(failures, "Task group failed");
+          }
+
+          return results;
+        }
+
+        const results: unknown[] = [];
+        for (const task of tasks) {
+          results.push(await task.run());
+        }
+        return results;
+      };
+
+      groupPromise = Object.assign(execute(), { clear: groupClear });
+      return groupPromise;
     },
   );
 

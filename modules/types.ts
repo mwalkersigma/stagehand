@@ -1,4 +1,5 @@
-import { Command } from "@commander-js/extra-typings";
+import { Command, Option as CommanderOption } from "@commander-js/extra-typings";
+import { type Options as ExecaOptions } from "execa";
 import { ExecutionContext } from "./classes/executionContext";
 import { RegisteredErrors } from "./classes/RegisteredErrors";
 import { ParallelStageOptions, TasukuReporter } from "./classes/tasukuReporter";
@@ -81,6 +82,13 @@ export interface ShellResult {
   stderr: string;
   exitCode: number;
 }
+
+export type ShellPreviewMode = 'stdout' | 'stderr' | 'all';
+
+export type ShellCommandOptions = ExecaOptions & {
+  preview?: boolean | ShellPreviewMode;
+  clearPreviewOnSuccess?: boolean;
+};
 
 /** File-system contract. */
 export interface FileSystem {
@@ -276,11 +284,22 @@ export type CommandProcessorFactory<TCmd extends Command> = (
 /** Command registration definition. */
 export type CommandDefinition<
   TNewCommandName extends string,
-  TBuiltCommand extends Command<[], {}, {}>,
+  TBuiltCommand extends Command,
 > = {
   name: TNewCommandName;
   description?: string;
   configOptions?: CommandOptions;
-  build?: (cmd: Command<[], {}>) => TBuiltCommand;
+  build?: (cmd: Command, Option: typeof CommanderOption) => TBuiltCommand;
   handler: CommandProcessorFactory<TBuiltCommand>;
 };
+
+export type DeepPartial<T> =
+    T extends (...args: any[]) => any
+        ? T
+        : T extends readonly [any, any] // keep tuples like gradient intact
+            ? T
+            : T extends readonly any[]
+                ? T
+                : T extends object
+                    ? { [K in keyof T]?: DeepPartial<T[K]> }
+                    : T;

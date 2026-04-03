@@ -5,6 +5,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "module": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url" : "https://github.com/mwalkersigma/stagehand.git"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -18,9 +22,9 @@
   ],
   "scripts": {
     "test": "bun test",
-    "build": "bun run main.ts build",
-    "build:dry": "bun run main.ts build --dry-run",
-    "build:fast": "bun run main.ts build --no-test"
+    "build": "bun run build-framework.ts build",
+    "build:dry": "bun run build-framework.ts build --dry-run",
+    "build:fast": "bun run build-framework.ts build --no-test"
   },
   "keywords": [
     "cli",

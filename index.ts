@@ -51,6 +51,8 @@ export type {
   ErrorRegistryInput,
   ErrorRegistryNormalized,
   ShellResult,
+  ShellPreviewMode,
+  ShellCommandOptions,
   FileSystem,
   Logger,
   Environment,

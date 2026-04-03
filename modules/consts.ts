@@ -1,26 +1,26 @@
 import { ScriptTheme } from "./types";
-import * as printutils from "./textFormatting"
+import * as printUtils from "./textFormatting"
 export const DEFAULT_THEME: ScriptTheme = {
   collapseLevel: 'none',
   colors: {
-    primary: printutils.blue,
-    secondary: printutils.white,
-    accent: printutils.green,
-    dimmed: printutils.darkGray,
-    primaryBackground: printutils.blueBackground,
-    secondaryBackground: printutils.grayBackground,
-    accentBackground: printutils.greenBackground,
+    primary: printUtils.blue,
+    secondary: printUtils.white,
+    accent: printUtils.green,
+    dimmed: printUtils.darkGray,
+    primaryBackground: printUtils.blueBackground,
+    secondaryBackground: printUtils.grayBackground,
+    accentBackground: printUtils.greenBackground,
     gradient: ['#00FFFF', '#FF00FF'],
-    warning: printutils.yellow,
-    error: printutils.red,
-    info: printutils.blue,
-    debug: printutils.darkGray,
-    success: printutils.green,
+    warning: printUtils.yellow,
+    error: printUtils.red,
+    info: printUtils.blue,
+    debug: printUtils.darkGray,
+    success: printUtils.green,
   },
   headerStyle: 'fancy',
   stageStyle: {
     formatString: '$stage: $message',
-    color: printutils.blue,
+    color: printUtils.blue,
   },
   stepStyle: {
     formatString: '$step: $message',

@@ -319,6 +319,33 @@ describe("ExecutionContext", () => {
     expect(runtime.shell.noop).not.toHaveBeenCalled();
   });
 
+  test("$() pipes live shell output into tasuku stream preview when requested", async () => {
+    const runtime = createMockRuntime({ dryRun: false });
+    const errors = new RegisteredErrors({});
+    const taskApi = createMockTaskInnerAPI();
+
+    const ctx = new ExecutionContext({
+      processorId: "test",
+      input: undefined,
+      shared: {},
+      runtime,
+      errors,
+      taskApi,
+    });
+
+    await ctx.$("echo", ["hello"], { preview: true, clearPreviewOnSuccess: true });
+
+    expect(runtime.shell.run).toHaveBeenCalledWith(
+      "echo",
+      ["hello"],
+      expect.objectContaining({
+        stdout: ["pipe", taskApi.streamPreview],
+        stderr: ["pipe", taskApi.streamPreview],
+      }),
+    );
+    expect(taskApi.streamPreview.clear).toHaveBeenCalled();
+  });
+
   test("$() calls shell.noop in dry-run mode", async () => {
     const runtime = createMockRuntime({ dryRun: true });
     const errors = new RegisteredErrors({});

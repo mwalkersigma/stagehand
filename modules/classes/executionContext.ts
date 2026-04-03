@@ -1,7 +1,7 @@
 import { type TaskInnerAPI, type TaskOptions, type TaskPromise } from "tasuku";
 import { type Options as ExecaOptions } from 'execa';
 import { FrameworkError } from "../errors";
-import { ErrorRegistryInput, StageMap, Runtime, CommonRuntimeFlags, StepMapOf, ArtifactFor, ShellResult } from "../types";
+import { ErrorRegistryInput, StageMap, Runtime, CommonRuntimeFlags, StepMapOf, ArtifactFor, ShellResult, ShellCommandOptions, ShellPreviewMode } from "../types";
 import { StepTaskContext } from "./tasukuReporter";
 import { RegisteredErrors } from "./RegisteredErrors";
 
@@ -170,15 +170,64 @@ export class ExecutionContext<
     });
   }
 
-  public async $(command: string, args: string[] = [], options?: ExecaOptions): Promise<ShellResult> {
+  public async $(command: string, args: string[] = [], options?: ShellCommandOptions): Promise<ShellResult> {
     if (this.isDryRun()) {
       await this.info(`[dry-run] ${command} ${args.join(' ')}`.trim());
       return this.runtime.shell.noop(command, args);
     }
-    return this.runtime.shell.run(command, args, options);
+
+    const previewMode = this.resolvePreviewMode(options?.preview);
+    const previewStream = previewMode ? this.task.streamPreview() : undefined;
+    const shellOptions = this.withPreviewOptions(options, previewMode, previewStream);
+    const result = await this.runtime.shell.run(command, args, shellOptions);
+
+    if (previewStream && options?.clearPreviewOnSuccess) {
+      previewStream.clear();
+    }
+
+    return result;
   }
 
   private stepKey(stageId: string, stepId: string): string {
     return `${stageId}::${stepId}`;
+  }
+
+  private resolvePreviewMode(preview?: boolean | ShellPreviewMode): ShellPreviewMode | undefined {
+    if (!preview) {
+      return undefined;
+    }
+
+    return preview === true ? 'all' : preview;
+  }
+
+  private withPreviewOptions(
+    options: ShellCommandOptions | undefined,
+    previewMode: ShellPreviewMode | undefined,
+    previewStream: TaskInnerAPI['streamPreview'] | undefined,
+  ): ExecaOptions | undefined {
+    if (!options) {
+      return previewMode && previewStream
+        ? this.createPreviewOptions({}, previewMode, previewStream)
+        : undefined;
+    }
+
+    const { preview: _preview, clearPreviewOnSuccess: _clearPreviewOnSuccess, ...shellOptions } = options;
+    if (!previewMode || !previewStream) {
+      return shellOptions;
+    }
+
+    return this.createPreviewOptions(shellOptions, previewMode, previewStream);
+  }
+
+  private createPreviewOptions(
+    options: ExecaOptions,
+    previewMode: ShellPreviewMode,
+    previewStream: TaskInnerAPI['streamPreview'],
+  ): ExecaOptions {
+    return {
+      ...options,
+      stdout: previewMode === 'stderr' ? options.stdout : ['pipe', previewStream],
+      stderr: previewMode === 'stdout' ? options.stderr : ['pipe', previewStream],
+    };
   }
 }

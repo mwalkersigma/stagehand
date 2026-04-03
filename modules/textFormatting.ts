@@ -1,12 +1,12 @@
 export function formatText(text: string, before: number, after: number): string {
-  const isTty = typeof process !== 'undefined' && process.stdout?.isTTY === true
+  const isTty = typeof process !== 'undefined' && process.stdout?.isTTY
   return isTty
     ? "\u001b[" + before + "m" + text + "\u001b[" + after + "m"
     : text;
 }
 
 export function textBackground(text: string, backgroundColorCode: number): string {
-  const isTty = typeof process !== 'undefined' && process.stdout?.isTTY === true
+  const isTty = typeof process !== 'undefined' && process.stdout?.isTTY
   const resetCode = 49; // Reset background color
   return isTty
     ? `\u001b[${backgroundColorCode}m${text}\u001b[${resetCode}m`

@@ -33,7 +33,7 @@ await new ScriptApp('stagehand-build')
           PACKAGE_FAILED: 'Failed to prepare package artifacts',
         })
         .createShared(async () => {
-          const projectRoot = path.resolve(import.meta.dir, '..');
+          const projectRoot = path.resolve(import.meta.dir);
           const distDir = path.join(projectRoot, 'dist');
           return {
             projectRoot,
@@ -147,9 +147,13 @@ await new ScriptApp('stagehand-build')
               compensation: { kind: 'none' },
               run: async (ctx) => {
                 try {
-                  await ctx.runtime.shell.run(
+                  await ctx.$(
                     'npx', ['tsc', '--noEmit'],
-                    { cwd: ctx.shared.projectRoot },
+                    {
+                      cwd: ctx.shared.projectRoot,
+                      preview: true,
+                      clearPreviewOnSuccess: false,
+                    },
                   );
                 } catch (err) {
                   throw ctx.errors.create(
@@ -185,9 +189,13 @@ await new ScriptApp('stagehand-build')
                 }
 
                 try {
-                  await ctx.runtime.shell.run(
+                  await ctx.$(
                     'npx', ['tsc', '-p', 'tsconfig.build.json'],
-                    { cwd: ctx.shared.projectRoot },
+                    {
+                      cwd: ctx.shared.projectRoot,
+                      preview: true,
+                      clearPreviewOnSuccess: false,
+                    },
                   );
                 } catch (err) {
                   throw ctx.errors.create(
@@ -272,9 +280,13 @@ await new ScriptApp('stagehand-build')
               when: (ctx) => ctx.runtime.flags.test,
               run: async (ctx) => {
                 try {
-                  await ctx.runtime.shell.run(
+                  await ctx.$(
                     'bun', ['test'],
-                    { cwd: ctx.shared.projectRoot },
+                    {
+                      cwd: ctx.shared.projectRoot,
+                      preview: true,
+                      clearPreviewOnSuccess: false,
+                    },
                   );
                 } catch (err) {
                   throw ctx.errors.create(

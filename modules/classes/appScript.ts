@@ -1,7 +1,10 @@
-import { Command } from "@commander-js/extra-typings";
+import { Command, Option } from "@commander-js/extra-typings";
 import { DEFAULT_THEME } from "../consts";
 import { ExecaShell } from "../shell";
-import { ScriptTheme, CommandDefinition, ExtractCommandOpts, ExtractCommandArgs, Runtime, CommandProcessorFactoryApi } from "../types";
+import {
+  ScriptTheme, CommandDefinition, ExtractCommandOpts, ExtractCommandArgs, Runtime, CommandProcessorFactoryApi,
+  type DeepPartial
+} from "../types";
 import { ProcessorBuilder } from "./processorBuilder";
 import { TasukuReporter } from "./tasukuReporter";
 import { ProcessEnvironment } from "./processEnvironment";
@@ -32,17 +35,17 @@ export class ScriptApp<
     return this as unknown as ScriptApp<TTheme, TCommandFlags, TMeta & TNewMeta>;
   }
 
-  public theme<TNewTheme extends ScriptTheme>(
-    theme: TNewTheme,
-  ): ScriptApp<TNewTheme, TCommandFlags, TMeta> {
+  public theme(
+    theme: DeepPartial<TTheme>,
+  ): ScriptApp<TTheme, TCommandFlags, TMeta> {
     this.__theme = {
       ...this.__theme,
       ...theme,
       colors: { ...this.__theme.colors, ...(theme.colors ?? {}) },
       stageStyle: { ...this.__theme.stageStyle, ...(theme.stageStyle ?? {}) },
       stepStyle: { ...this.__theme.stepStyle, ...(theme.stepStyle ?? {}) },
-    } satisfies TNewTheme;
-    return this as unknown as ScriptApp<TNewTheme, TCommandFlags, TMeta>;
+    } as TTheme;
+    return this as unknown as ScriptApp<TTheme, TCommandFlags, TMeta>;
   }
 
   public command<
@@ -53,7 +56,7 @@ export class ScriptApp<
     TCommandFlags & Record<TNewCommandName, ExtractCommandOpts<TBuiltCommand>>,
     TMeta
   > {
-    const sub = new Command(definition.name) as Command<[], {}>;
+    const sub = new Command(definition.name) as Command;
     if (definition.description) {
       sub.description(definition.description);
     }
@@ -68,7 +71,7 @@ export class ScriptApp<
       sub.passThroughOptions(true);
     }
 
-    const built = (definition.build ? definition.build(sub) : sub) as unknown as TBuiltCommand;
+    const built = (definition.build ? definition.build(sub, Option) : sub) as unknown as TBuiltCommand;
     const factoryApi: CommandProcessorFactoryApi<TBuiltCommand> = {
       command: built,
       defineProcessor: <TInput = ExtractCommandArgs<TBuiltCommand>>(args: { id: string; title: string }) => {

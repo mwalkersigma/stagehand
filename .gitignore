@@ -1,3 +1,8 @@
 node_modules
 dist
 .env
+.idea
+.zed
+.vscode
+*.log
+*.tgz

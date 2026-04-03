@@ -1,7 +1,11 @@
-import { type TaskInnerAPI, type Task as TasukuTask, type TaskOptions, type TaskPromise } from "tasuku";
-import tasukuTask from "tasuku/inline";
+import { createTasuku, type TaskInnerAPI, type Task as TasukuTask, type TaskOptions, type TaskPromise } from "tasuku";
+import { theme } from "tasuku/theme/blink";
+
+const tasukuTask = createTasuku({
+  theme: theme,
+});
 import { ScriptTheme } from "../types";
-import { Bold, darkGray, white } from "../textFormatting";
+import { Bold, GradientText } from "../textFormatting";
 
 export type ParallelStageOptions = Omit<NonNullable<Parameters<TasukuTask['group']>[1]>, 'stopOnError'>;
 
@@ -32,33 +36,64 @@ export class TasukuReporter {
   /** Print the processor header and meta information to the console. */
   public async printHeader(args: { title: string; meta: Record<string, string> }): Promise<void> {
     const name = args.title;
-    const padding = 7;
-    const innerWidth = name.length + padding * 2;
-    const totalWidth = innerWidth + 4;
-    const border = '*'.repeat(totalWidth);
     const theme = this.theme;
     if (theme.headerStyle === 'fancy') {
-      const leftPad = Math.floor((innerWidth - name.length) / 2);
-      const rightPad = innerWidth - name.length - leftPad;
-      const middle = `${theme.colors.dimmed('**')}${' '.repeat(leftPad)}${theme.colors.primary(Bold(name))}${' '.repeat(rightPad)}${theme.colors.dimmed('**')}`
+      const stripAnsi = (value: string): string => value.replace(/\u001b\[[0-9;]*m/g, '');
+      const visibleLength = (value: string): number => stripAnsi(value).length;
+      const truncate = (value: string, maxLength: number): string => {
+        if (value.length <= maxLength) {
+          return value;
+        }
+        if (maxLength <= 3) {
+          return '.'.repeat(Math.max(0, maxLength));
+        }
+        return `${value.slice(0, maxLength - 3)}...`;
+      };
+      const padVisibleEnd = (value: string, width: number): string => {
+        const remaining = Math.max(0, width - visibleLength(value));
+        return `${value}${' '.repeat(remaining)}`;
+      };
+      const centerText = (value: string, width: number): string => {
+        const space = Math.max(0, width - visibleLength(value));
+        const left = Math.floor(space / 2);
+        const right = space - left;
+        return `${' '.repeat(left)}${value}${' '.repeat(right)}`;
+      };
+
+      const metaEntries = Object.entries(args.meta);
+      const labelWidth = Math.max(0, ...metaEntries.map(([key]) => `${key.toUpperCase()}:`.length));
+      const metaRawWidths = metaEntries.map(([key, value]) => `${key.toUpperCase()}:`.padEnd(labelWidth) + ` ${String(value)}`);
+      const minContentWidth = 56;
+      const contentWidth = Math.max(minContentWidth, name.length, ' powered by stagehand '.length, ...metaRawWidths.map((row) => row.length));
+
+      const makeRow = (content: string): string => `| ${padVisibleEnd(content, contentWidth)} |`;
+      const border = `+${'-'.repeat(contentWidth + 2)}+`;
+      const titleText = GradientText(name, theme.colors.gradient[0], theme.colors.gradient[1]);
+      const titleRow = makeRow(centerText(titleText, contentWidth));
+
+      const poweredLabel = ' powered by stagehand ';
+      const poweredRemaining = Math.max(0, contentWidth - poweredLabel.length);
+      const poweredLeft = '-'.repeat(Math.floor(poweredRemaining / 2));
+      const poweredRight = '-'.repeat(poweredRemaining - poweredLeft.length);
+      const poweredRow = makeRow(`${poweredLeft}${theme.colors.dimmed(poweredLabel)}${poweredRight}`);
+
       console.log('');
       console.log(theme.colors.dimmed(border));
-      console.log(middle);
-      console.log(theme.colors.dimmed(border));
-      const entries = Object.entries(args.meta);
-      if (entries.length > 0) {
-        for (const [key, value] of entries) {
-          const centerSpace = Math.max(1, innerWidth - key.length - String(value).length - 2);
-          console.log(`${theme.colors.dimmed('**')}${darkGray(key.toUpperCase())}: ${' '.repeat(centerSpace - 3)} ${white(value)} ${theme.colors.dimmed('**')}`);
-        }
+      console.log(titleRow);
+      console.log(poweredRow);
+      for (const [key, value] of Object.entries(args.meta)) {
+        const label = `${key.toUpperCase()}:`;
+        const valueMax = Math.max(1, contentWidth - labelWidth - 1);
+        const safeValue = truncate(String(value), valueMax);
+        const labelPart = theme.colors.dimmed(label.padEnd(labelWidth));
+        const valuePart = theme.colors.secondary(safeValue.padEnd(valueMax));
+        console.log(`| ${labelPart} ${valuePart} |`);
       }
       console.log(theme.colors.dimmed(border));
-      console.log('');
+
     } else {
       console.log('');
-      console.log(name);
+      console.log(Bold(name));
     }
-
-
   }
 }
