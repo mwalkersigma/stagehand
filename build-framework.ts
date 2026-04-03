@@ -262,6 +262,66 @@ await new ScriptApp('stagehand-build')
                 }
               },
             })
+            .step({
+              id: 'copy-package-docs',
+              title: 'Copy README and LICENSE to dist/',
+              effect: 'create',
+              compensation: { kind: 'best-effort' },
+              run: async (ctx) => {
+                const readmeSource = path.join(ctx.shared.projectRoot, 'README.md');
+                const licenseSource = path.join(ctx.shared.projectRoot, 'LICENSE');
+                const readmeTarget = path.join(ctx.shared.distDir, 'README.md');
+                const licenseTarget = path.join(ctx.shared.distDir, 'LICENSE');
+
+                if (ctx.isDryRun()) {
+                  ctx.setTaskOutput(`[dry-run] Would copy ${readmeSource} and ${licenseSource} to dist`);
+                  return {
+                    artifact: {
+                      copied: false,
+                      readmePath: readmeTarget,
+                      licensePath: licenseTarget,
+                    },
+                  };
+                }
+
+                try {
+                  await fs.copyFile(readmeSource, readmeTarget);
+                  await fs.copyFile(licenseSource, licenseTarget);
+                } catch (err) {
+                  throw ctx.errors.create(
+                    'PACKAGE_FAILED',
+                    'Failed to copy README and LICENSE into dist',
+                    err,
+                  );
+                }
+
+                ctx.setTaskOutput('Copied README.md and LICENSE to dist/');
+                return {
+                  artifact: {
+                    copied: true,
+                    readmePath: readmeTarget,
+                    licensePath: licenseTarget,
+                  },
+                };
+              },
+              compensate: async (_ctx, artifact) => {
+                if (!artifact.copied) {
+                  return;
+                }
+
+                try {
+                  await fs.unlink(artifact.readmePath);
+                } catch {
+                  // File may already be gone
+                }
+
+                try {
+                  await fs.unlink(artifact.licensePath);
+                } catch {
+                  // File may already be gone
+                }
+              },
+            })
         )
 
         // ═══════════════════════════════════════════════════════════════
