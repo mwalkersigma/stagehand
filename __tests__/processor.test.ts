@@ -422,7 +422,9 @@ describe("Processor", () => {
             effect: "create",
             compensation: { kind: "required" },
             run: async () => ({ artifact: "data" }),
-            // No compensate function provided
+            compensate: async () => {
+              throw new FrameworkError("Compensation failed");
+            },
           })
           .step({
             id: "fail-step",

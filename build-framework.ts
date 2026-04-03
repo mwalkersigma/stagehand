@@ -167,9 +167,44 @@ await new ScriptApp('stagehand-build')
               },
             })
         )
-
+// ═══════════════════════════════════════════════════════════════
+        // Stage 4 — Run Tests
+        //
+        // Executes the full test suite via `bun test`.
+        // Skipped when --no-test is passed.
         // ═══════════════════════════════════════════════════════════════
-        // Stage 4 — Compile
+        .stage('test', 'Run Tests', (stage) =>
+          stage
+            .step({
+              id: 'bun-test',
+              title: 'Run bun test',
+              effect: 'read',
+              compensation: { kind: 'none' },
+              when: (ctx) => ctx.runtime.flags.test,
+              run: async (ctx) => {
+                try {
+                  await ctx.$(
+                    'bun', ['test'],
+                    {
+                      cwd: ctx.shared.projectRoot,
+                      preview: true,
+                      clearPreviewOnSuccess: false,
+                    },
+                  );
+                } catch (err) {
+                  throw ctx.errors.create(
+                    'TEST_FAILED',
+                    'Test suite failed',
+                    err,
+                  );
+                }
+                ctx.setTaskOutput('All tests passed');
+                return { artifact: { passed: true as const } };
+              },
+            })
+        )
+        // ═══════════════════════════════════════════════════════════════
+        // Stage 5 — Compile
         //
         // Emits compiled JavaScript and declaration files into dist/
         // using tsconfig.build.json, then copies a publish-ready
@@ -320,43 +355,6 @@ await new ScriptApp('stagehand-build')
                 } catch {
                   // File may already be gone
                 }
-              },
-            })
-        )
-
-        // ═══════════════════════════════════════════════════════════════
-        // Stage 5 — Run Tests
-        //
-        // Executes the full test suite via `bun test`.
-        // Skipped when --no-test is passed.
-        // ═══════════════════════════════════════════════════════════════
-        .stage('test', 'Run Tests', (stage) =>
-          stage
-            .step({
-              id: 'bun-test',
-              title: 'Run bun test',
-              effect: 'read',
-              compensation: { kind: 'none' },
-              when: (ctx) => ctx.runtime.flags.test,
-              run: async (ctx) => {
-                try {
-                  await ctx.$(
-                    'bun', ['test'],
-                    {
-                      cwd: ctx.shared.projectRoot,
-                      preview: true,
-                      clearPreviewOnSuccess: false,
-                    },
-                  );
-                } catch (err) {
-                  throw ctx.errors.create(
-                    'TEST_FAILED',
-                    'Test suite failed',
-                    err,
-                  );
-                }
-                ctx.setTaskOutput('All tests passed');
-                return { artifact: { passed: true as const } };
               },
             })
         )

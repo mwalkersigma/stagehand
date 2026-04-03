@@ -55,6 +55,52 @@ export class StageBuilder<
     id: TStepId;
     title: string;
     effect: StepEffectKind;
+    compensation: { kind: 'required' | 'best-effort' };
+    when?: (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, VisibleStages<TStageId, TInput, TShared, TFlags, TRegistry, TSteps, TStageArtifact, TStages>>) => Awaitable<boolean>;
+    run: TRun;
+    compensate: (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, VisibleStages<TStageId, TInput, TShared, TFlags, TRegistry, TSteps, TStageArtifact, TStages>>, artifact: TArtifact) => Promise<void>;
+  }): StageBuilder<
+    TStageId,
+    TInput,
+    TShared,
+    TFlags,
+    TRegistry,
+    readonly [...TSteps, StepDefinition<TStepId, TInput, TShared, TFlags, TRegistry, TArtifact>],
+    TStageArtifact,
+    TStages
+  >;
+
+  public step<
+    TStepId extends string,
+    TRun extends (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, VisibleStages<TStageId, TInput, TShared, TFlags, TRegistry, TSteps, TStageArtifact, TStages>>) => Promise<StepRunResult<any>>,
+    TArtifact = Awaited<ReturnType<TRun>>['artifact'],
+  >(definition: {
+    id: TStepId;
+    title: string;
+    effect: StepEffectKind;
+    compensation: { kind: 'none' };
+    when?: (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, VisibleStages<TStageId, TInput, TShared, TFlags, TRegistry, TSteps, TStageArtifact, TStages>>) => Awaitable<boolean>;
+    run: TRun;
+    compensate?: never;
+  }): StageBuilder<
+    TStageId,
+    TInput,
+    TShared,
+    TFlags,
+    TRegistry,
+    readonly [...TSteps, StepDefinition<TStepId, TInput, TShared, TFlags, TRegistry, TArtifact>],
+    TStageArtifact,
+    TStages
+  >;
+
+  public step<
+    TStepId extends string,
+    TRun extends (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, VisibleStages<TStageId, TInput, TShared, TFlags, TRegistry, TSteps, TStageArtifact, TStages>>) => Promise<StepRunResult<any>>,
+    TArtifact = Awaited<ReturnType<TRun>>['artifact'],
+  >(definition: {
+    id: TStepId;
+    title: string;
+    effect: StepEffectKind;
     compensation: CompensationPolicy;
     when?: (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, VisibleStages<TStageId, TInput, TShared, TFlags, TRegistry, TSteps, TStageArtifact, TStages>>) => Awaitable<boolean>;
     run: TRun;

@@ -162,7 +162,8 @@ export type ArtifactFor<
   TStepId extends keyof StepMapOf<TStages, TStageId>,
 > = InferStepArtifact<StepMapOf<TStages, TStageId>[TStepId]>;
 
-export interface StepDefinition<
+/** Step with required or best-effort compensation must define compensate() */
+export interface StepDefinitionWithCompensation<
   TId extends string,
   TInput,
   TShared,
@@ -174,11 +175,42 @@ export interface StepDefinition<
   id: TId;
   title: string;
   effect: StepEffectKind;
-  compensation: CompensationPolicy;
+  compensation: { kind: 'required' | 'best-effort' };
   when?: (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, TStages>) => Awaitable<boolean>;
   run: (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, TStages>) => Promise<StepRunResult<TArtifact>>;
-  compensate?: (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, TStages>, artifact: TArtifact) => Promise<void>;
+  compensate: (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, TStages>, artifact: TArtifact) => Promise<void>;
 }
+
+/** Step with no compensation must not define compensate() */
+export interface StepDefinitionWithoutCompensation<
+  TId extends string,
+  TInput,
+  TShared,
+  TFlags extends Record<string, unknown>,
+  TRegistry extends ErrorRegistryInput,
+  TArtifact,
+  TStages extends StageMap = StageMap,
+> {
+  id: TId;
+  title: string;
+  effect: StepEffectKind;
+  compensation: { kind: 'none' };
+  when?: (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, TStages>) => Awaitable<boolean>;
+  run: (ctx: ExecutionContext<TInput, TShared, TFlags, TRegistry, TStages>) => Promise<StepRunResult<TArtifact>>;
+  compensate?: never;
+}
+
+/** Step definition discriminated by compensation policy kind. */
+export type StepDefinition<
+  TId extends string,
+  TInput,
+  TShared,
+  TFlags extends Record<string, unknown>,
+  TRegistry extends ErrorRegistryInput,
+  TArtifact,
+  TStages extends StageMap = StageMap,
+> = StepDefinitionWithCompensation<TId, TInput, TShared, TFlags, TRegistry, TArtifact, TStages> 
+  | StepDefinitionWithoutCompensation<TId, TInput, TShared, TFlags, TRegistry, TArtifact, TStages>;
 
 /** Stage definition. */
 export interface StageDefinition<

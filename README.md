@@ -947,4 +947,4 @@ describe("My Processor", () => {
 
 ## License
 
-ISC
+MIT

@@ -27,6 +27,7 @@
     "build:fast": "bun run build-framework.ts build --no-test",
     "publish:dry": "bun run publishFramework.ts publish --dry-run",
     "publish:npm": "bun run publishFramework.ts publish",
+    "publish:npm:no-build": "bun run publishFramework.ts publish --no-build",
     "release:dry": "npm run publish:dry",
     "release:npm": "npm run publish:npm"
   },
