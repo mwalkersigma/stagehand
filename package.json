@@ -24,7 +24,11 @@
     "test": "bun test",
     "build": "bun run build-framework.ts build",
     "build:dry": "bun run build-framework.ts build --dry-run",
-    "build:fast": "bun run build-framework.ts build --no-test"
+    "build:fast": "bun run build-framework.ts build --no-test",
+    "publish:dry": "bun run publishFramework.ts publish --dry-run",
+    "publish:npm": "bun run publishFramework.ts publish",
+    "release:dry": "npm run publish:dry",
+    "release:npm": "npm run publish:npm"
   },
   "keywords": [
     "cli",
