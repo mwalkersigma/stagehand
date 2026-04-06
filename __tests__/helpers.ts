@@ -226,6 +226,12 @@ export function createMockRuntime<TFlags extends Record<string, unknown>>(
       exitCode: 0,
     })),
     capture: mock(async () => ""),
+    passthrough: mock(async (cmd: string, args?: string[]) => ({
+      command: `${cmd} ${(args ?? []).join(" ")}`.trim(),
+      stdout: "",
+      stderr: "",
+      exitCode: 0,
+    })),
     noop: mock(async (cmd: string, args?: string[]) => ({
       command: `${cmd} ${(args ?? []).join(" ")}`.trim(),
       stdout: "",

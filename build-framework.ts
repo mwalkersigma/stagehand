@@ -78,62 +78,8 @@ await new ScriptApp('stagehand-build')
               },
             })
         )
-
         // ═══════════════════════════════════════════════════════════════
-        // Stage 2 — Verify Build Environment
-        //
-        // Ensures TypeScript and Bun are available before attempting
-        // any compilation or test work. Runs checks in parallel.
-        // ═══════════════════════════════════════════════════════════════
-        .stage('verify-env', 'Verify Build Environment', (stage) =>
-          stage
-            .parallel()
-            .collapse('tasks')
-            .step({
-              id: 'check-tsc',
-              title: 'Check TypeScript compiler',
-              effect: 'read',
-              compensation: { kind: 'none' },
-              run: async (ctx) => {
-                try {
-                  const version = await ctx.runtime.shell.capture(
-                    'npx', ['tsc', '--version'],
-                    { cwd: ctx.shared.projectRoot },
-                  );
-                  ctx.setTaskOutput(`TypeScript: ${version.trim()}`);
-                  return { artifact: { version: version.trim() } };
-                } catch (err) {
-                  throw ctx.errors.create(
-                    'ENV_CHECK_FAILED',
-                    'TypeScript compiler not found — run `bun add -d typescript`',
-                    err,
-                  );
-                }
-              },
-            })
-            .step({
-              id: 'check-bun',
-              title: 'Check Bun runtime',
-              effect: 'read',
-              compensation: { kind: 'none' },
-              run: async (ctx) => {
-                try {
-                  const version = await ctx.runtime.shell.capture('bun', ['--version']);
-                  ctx.setTaskOutput(`Bun: v${version.trim()}`);
-                  return { artifact: { version: version.trim() } };
-                } catch (err) {
-                  throw ctx.errors.create(
-                    'ENV_CHECK_FAILED',
-                    'Bun runtime not found — install from https://bun.sh',
-                    err,
-                  );
-                }
-              },
-            })
-        )
-
-        // ═══════════════════════════════════════════════════════════════
-        // Stage 3 — Type Check
+        // Stage 2 — Type Check
         //
         // Runs `tsc --noEmit` to verify the codebase has no type errors
         // before we attempt to emit output files.
@@ -168,7 +114,7 @@ await new ScriptApp('stagehand-build')
             })
         )
 // ═══════════════════════════════════════════════════════════════
-        // Stage 4 — Run Tests
+        // Stage 3 — Run Tests
         //
         // Executes the full test suite via `bun test`.
         // Skipped when --no-test is passed.
@@ -204,7 +150,7 @@ await new ScriptApp('stagehand-build')
             })
         )
         // ═══════════════════════════════════════════════════════════════
-        // Stage 5 — Compile
+        // Stage 4 — Compile
         //
         // Emits compiled JavaScript and declaration files into dist/
         // using tsconfig.build.json, then copies a publish-ready
