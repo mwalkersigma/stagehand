@@ -1,6 +1,6 @@
 {
   "name": "@mwalkersigma/stagehand",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A typed, multi-stage CLI script framework with compensation, error registries, and tasuku-powered terminal rendering.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
