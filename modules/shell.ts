@@ -4,6 +4,12 @@ import { ShellResult } from './types';
 export interface Shell {
   run(command: string, args?: string[], options?: Options): Promise<ShellResult>;
   capture(command: string, args?: string[], options?: Options): Promise<string>;
+  /**
+   * Run a command with stdio inherited from the parent process.
+   * Use for tools like PM2 that write directly to the TTY and cannot be
+   * captured via a pipe.  No stdout/stderr is returned.
+   */
+  passthrough(command: string, args?: string[], options?: Omit<Options, 'stdio'>): Promise<ShellResult>;
   noop(command: string, args?: string[]): Promise<ShellResult>;
 }
 
@@ -37,6 +43,16 @@ export class ExecaShell implements Shell {
   public async capture(command: string, args: string[] = [], options?: Options): Promise<string> {
     const result = await execa(command, args, options);
     return normalizeOutput(result.stdout);
+  }
+
+  public async passthrough(command: string, args: string[] = [], options?: Omit<Options, 'stdio'>): Promise<ShellResult> {
+    await execa(command, args, { ...options, stdio: 'inherit' });
+    return {
+      command: `${command} ${args.join(' ')}`.trim(),
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+    };
   }
 
   public async noop(command: string, args: string[] = []): Promise<ShellResult> {

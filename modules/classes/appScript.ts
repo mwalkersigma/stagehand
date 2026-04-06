@@ -8,6 +8,7 @@ import {
 import { ProcessorBuilder } from "./processorBuilder";
 import { TasukuReporter } from "./tasukuReporter";
 import { ProcessEnvironment } from "./processEnvironment";
+import { formatErrorChain } from "../errors";
 
 export class ScriptApp<
   TTheme extends ScriptTheme = ScriptTheme,
@@ -95,7 +96,9 @@ export class ScriptApp<
 
       const result = await handler.run(args, runtime, this.__meta);
       if (!result.ok) {
-        throw result.error;
+        const formatted = formatErrorChain(result.error);
+        console.error('\n' + runtime.theme.colors.error('Script failed:\n') + formatted + '\n');
+        process.exit(1);
       }
     });
 

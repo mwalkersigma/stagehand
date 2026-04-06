@@ -69,6 +69,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { ScriptApp } from "../modules/classes/appScript";
+import { FrameworkError } from "../modules/errors";
 // CRITICAL: Import Option from '@commander-js/extra-typings', NOT 'commander'.
 // Using the wrong import kills type inference on flags.
 import { Option } from "@commander-js/extra-typings";
@@ -170,6 +171,57 @@ function seedSourceFiles(sourcePath: string): void {
 // Application
 // ═══════════════════════════════════════════════════════════════════════════
 
+function formatFailure(error: unknown): void {
+  let stepLocation: string | undefined;
+  let userMessage: string | undefined;
+  let errorCode: string | undefined;
+  let rootCause: unknown = error;
+
+  let cursor: unknown = error;
+  while (cursor instanceof Error) {
+    if (cursor instanceof FrameworkError) {
+      if (!cursor.code) {
+        stepLocation ??= cursor.message.replace(/^Step failed:\s*/i, '').trim();
+      } else {
+        userMessage ??= cursor.message;
+        errorCode ??= cursor.code;
+      }
+    }
+    if (cursor.cause !== undefined) {
+      rootCause = cursor.cause;
+    }
+    cursor = (cursor as any).cause;
+  }
+
+  const indent = '  ';
+  const lines: string[] = [];
+
+  lines.push('');
+  lines.push(red(Bold('\u2716 Step failed')) + (stepLocation ? darkGray(` (${stepLocation})`) : ''));
+
+  if (userMessage) {
+    const codeTag = errorCode ? darkGray(` [${errorCode}]`) : '';
+    lines.push(`${indent}${yellow('\u2192')} ${userMessage}${codeTag}`);
+  }
+
+  if (rootCause instanceof Error && rootCause !== error) {
+    const rootMsg = (rootCause as any).shortMessage ?? rootCause.message;
+    if (rootMsg) {
+      lines.push(`${indent}${darkGray('cause:')} ${rootMsg}`);
+    }
+    const stderr = ((rootCause as any).stderr as string | undefined)?.trim();
+    if (stderr) lines.push(`${indent}${darkGray('stderr:')} ${stderr}`);
+    const stdout = ((rootCause as any).stdout as string | undefined)?.trim();
+    if (stdout) lines.push(`${indent}${darkGray('stdout:')} ${stdout}`);
+  } else if (!userMessage && rootCause instanceof Error) {
+    lines.push(`${indent}${yellow('\u2192')} ${rootCause.message}`);
+  }
+
+  lines.push('');
+  console.error(lines.join('\n'));
+}
+
+try {
 await new ScriptApp("fs-deploy")
 
   // ── Feature 1: Metadata via .meta() ─────────────────────────────────
@@ -1229,3 +1281,7 @@ await new ScriptApp("fs-deploy")
   // Forgetting to call or await .parseAsync() causes a silent exit —
   // absolutely nothing runs. This is the #1 mistake new users make.
   .parseAsync();
+} catch (error) {
+  formatFailure(error);
+  process.exit(1);
+}

@@ -9,7 +9,7 @@ export { TasukuReporter } from './modules/classes/tasukuReporter';
 export { ProcessEnvironment } from './modules/classes/processEnvironment';
 
 // ── Utilities ────────────────────────────────────────────────────────────────
-export { FrameworkError } from './modules/errors';
+export { FrameworkError, formatErrorChain } from './modules/errors';
 export { ExecaShell } from './modules/shell';
 export { DEFAULT_THEME } from './modules/consts';
 
